@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Conversation from "../models/Conversation.model";
 import Message from "../models/Message.model";
 import Notification from "../models/Notification.model";
+import uploadAudioToCloudinary from "../utils/uploadAudioToCloudinary";
 
 export const sendMessage = async (req: Request, res: Response) => {
   try {
@@ -185,6 +186,67 @@ export const deleteMessage = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
 
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const sendVoiceMessage = async (req: Request, res: Response) => {
+  try {
+    const { conversationId } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Audio file is required.",
+      });
+    }
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: "Conversation not found.",
+      });
+    }
+
+    // Upload audio buffer to Cloudinary
+    const uploadResult = await uploadAudioToCloudinary(req.file.buffer, "voice_messages");
+
+    const message = new Message({
+      conversation: conversationId,
+      sender: req.userId,
+      type: "voice",
+      content: uploadResult.secure_url,
+    });
+    await message.save();
+
+    conversation.lastMessage = message._id as any;
+    await conversation.save();
+
+    const participants = conversation.participants as any[];
+    const receiver = participants.find((id: any) => id.toString() !== req.userId);
+
+    if (receiver) {
+      await Notification.create({
+        sender: req.userId,
+        receiver,
+        type: "message",
+        conversation: conversationId as string,
+      });
+    }
+
+    await message.populate("sender", "name username profilePicture");
+
+    return res.status(201).json({
+      success: true,
+      message: "Voice message sent successfully.",
+      data: message,
+    });
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
