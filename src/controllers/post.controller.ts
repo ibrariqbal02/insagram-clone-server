@@ -1,9 +1,13 @@
 import { Request, Response } from "express";
 import uploadToCloudinary from "../utils/uploadToCloudinary";
+import uploadVideoToCloudinary from "../utils/uploadVideoToCloudinary";
 import Post from "../models/Post.model";
 import deleteFromCloudinary from "../utils/deleteFromCloudinary";
 import Notification from "../models/Notification.model";
 import mongoose from "mongoose";
+import { ALLOWED_VIDEO_TYPES } from "../config/multer";
+
+const isVideoFile = (mimetype: string) => ALLOWED_VIDEO_TYPES.includes(mimetype);
 // import fs from "node:fs/promises";
 
 // export const createPost = async (req: Request, res: Response) => {
@@ -65,25 +69,47 @@ export const createPost = async (req: Request, res: Response) => {
     if (!files || files.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Please upload at least one image.",
+        message: "Please upload at least one image or video.",
+      });
+    }
+
+    // Separate image and video files
+    const imageFiles = files.filter((f) => !isVideoFile(f.mimetype));
+    const videoFiles = files.filter((f) => isVideoFile(f.mimetype));
+
+    if (videoFiles.length > 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Only one video per post is allowed.",
+      });
+    }
+
+    if (videoFiles.length > 0 && imageFiles.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "A post can contain either images or a video, not both.",
       });
     }
 
     const images: { url: string; publicId: string }[] = [];
+    let video: { url: string; publicId: string } | undefined;
 
-    for (const file of files) {
+    for (const file of imageFiles) {
       try {
-        const result = await uploadToCloudinary(
-          file.buffer,
-          "posts"
-        );
-
-        images.push({
-          url: result.secure_url,
-          publicId: result.public_id,
-        });
+        const result = await uploadToCloudinary(file.buffer, "posts");
+        images.push({ url: result.secure_url, publicId: result.public_id });
       } catch (error) {
-        console.error("Cloudinary upload error:", error);
+        console.error("Cloudinary image upload error:", error);
+        throw error;
+      }
+    }
+
+    if (videoFiles.length === 1) {
+      try {
+        const result = await uploadVideoToCloudinary(videoFiles[0].buffer, "posts");
+        video = { url: result.secure_url, publicId: result.public_id };
+      } catch (error) {
+        console.error("Cloudinary video upload error:", error);
         throw error;
       }
     }
@@ -92,6 +118,7 @@ export const createPost = async (req: Request, res: Response) => {
       owner: req.userId,
       caption,
       images,
+      ...(video && { video }),
     });
 
     return res.status(201).json({
@@ -105,9 +132,7 @@ export const createPost = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message:
-        error instanceof Error
-          ? error.message
-          : "Internal Server Error",
+        error instanceof Error ? error.message : "Internal Server Error",
     });
   }
 };
@@ -329,30 +354,33 @@ export const updatePost = async (req: Request, res: Response) => {
     }
 
     if (files && files.length > 0) {
-      // Delete old images from Cloudinary
+      const imageFiles = files.filter((f) => !isVideoFile(f.mimetype));
+      const videoFiles = files.filter((f) => isVideoFile(f.mimetype));
+
+      // Delete old images
       for (const image of post.images) {
         await deleteFromCloudinary(image.publicId);
       }
 
-      const newImages: {
-        url: string;
-        publicId: string;
-      }[] = [];
+      // Delete old video if replacing
+      if (post.video?.publicId) {
+        await deleteFromCloudinary(post.video.publicId);
+        post.video = undefined;
+      }
 
-      // Upload new images directly from memory to Cloudinary
-      for (const file of files) {
-        const result = await uploadToCloudinary(
-          file.buffer,
-          "posts"
-        );
+      const newImages: { url: string; publicId: string }[] = [];
 
-        newImages.push({
-          url: result.secure_url,
-          publicId: result.public_id,
-        });
+      for (const file of imageFiles) {
+        const result = await uploadToCloudinary(file.buffer, "posts");
+        newImages.push({ url: result.secure_url, publicId: result.public_id });
       }
 
       post.images = newImages as typeof post.images;
+
+      if (videoFiles.length === 1) {
+        const result = await uploadVideoToCloudinary(videoFiles[0].buffer, "posts");
+        post.video = { url: result.secure_url, publicId: result.public_id } as typeof post.video;
+      }
     }
 
     await post.save();
@@ -393,6 +421,10 @@ export const deletePost = async (req: Request, res: Response) => {
 
     for (const image of post.images) {
       await deleteFromCloudinary(image.publicId);
+    }
+
+    if (post.video?.publicId) {
+      await deleteFromCloudinary(post.video.publicId);
     }
 
     await Post.findByIdAndDelete(postId);

@@ -42,8 +42,36 @@ export const getFeed = async (
       .populate("owner", "name username profilePicture isPrivate")
       .sort({ createdAt: -1 });
 
+    // New user with no follows and no own posts yet — show public posts as
+    // a discovery feed so the home page isn't empty on first login.
+    if (posts.length === 0 && currentUser.following.length === 0) {
+      const explorePosts = await Post.find({
+        status: { $ne: "archived" },
+        owner: { $ne: currentUser._id },   // exclude their own (they have none yet)
+      })
+        .populate({
+          path: "owner",
+          match: { isPrivate: false },      // public accounts only
+          select: "name username profilePicture isPrivate",
+        })
+        .sort({ createdAt: -1 })
+        .limit(30);
+
+      // populate returns null for owner when the match fails (private account),
+      // so filter those out
+      const publicPosts = explorePosts.filter((p) => p.owner !== null);
+
+      return res.status(200).json({
+        success: true,
+        isExplore: true,           // lets the frontend show a contextual label
+        totalPosts: publicPosts.length,
+        posts: publicPosts,
+      });
+    }
+
     return res.status(200).json({
       success: true,
+      isExplore: false,
       totalPosts: posts.length,
       posts,
     });

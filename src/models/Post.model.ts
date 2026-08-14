@@ -27,6 +27,17 @@ const postSchema = new Schema(
       },
     ],
 
+    video: {
+      url: {
+        type: String,
+        default: null,
+      },
+      publicId: {
+        type: String,
+        default: null,
+      },
+    },
+
     likes: [
       {
         type: Types.ObjectId,

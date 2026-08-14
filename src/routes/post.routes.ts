@@ -9,7 +9,7 @@ const postRoutes = Router();
 postRoutes.post(
   "/create",
   isAuthenticated,
-  upload.array("images", 5),
+  upload.array("media", 5),
   createPost
 );
 
@@ -20,7 +20,7 @@ postRoutes.get("/:postId", getSinglePost);
 postRoutes.put(
   "/:postId",
   isAuthenticated,
-  upload.array("images", 5),
+  upload.array("media", 5),
   updatePost
 );
 
