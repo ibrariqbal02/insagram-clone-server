@@ -42,12 +42,14 @@ export const getFeed = async (
       .populate("owner", "name username profilePicture isPrivate")
       .sort({ createdAt: -1 });
 
-    // New user with no follows and no own posts yet — show public posts as
-    // a discovery feed so the home page isn't empty on first login.
-    if (posts.length === 0 && currentUser.following.length === 0) {
+    // New user with no follows — show public posts as a discovery feed so the
+    // home page isn't empty. We do this regardless of whether they have their
+    // own posts, so uploading a first post doesn't suddenly collapse the feed
+    // to show only that single post.
+    if (currentUser.following.length === 0) {
       const explorePosts = await Post.find({
         status: { $ne: "archived" },
-        owner: { $ne: currentUser._id },   // exclude their own (they have none yet)
+        owner: { $ne: currentUser._id },   // exclude their own posts from explore
       })
         .populate({
           path: "owner",
@@ -61,11 +63,17 @@ export const getFeed = async (
       // so filter those out
       const publicPosts = explorePosts.filter((p) => p.owner !== null);
 
+      // Merge own posts (always visible) at the top, then explore posts
+      const merged = [...posts, ...publicPosts].sort(
+        (a: any, b: any) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
       return res.status(200).json({
         success: true,
         isExplore: true,           // lets the frontend show a contextual label
-        totalPosts: publicPosts.length,
-        posts: publicPosts,
+        totalPosts: merged.length,
+        posts: merged,
       });
     }
 
@@ -82,5 +90,34 @@ export const getFeed = async (
       success: false,
       message: "Internal Server Error",
     });
+  }
+};
+
+/** Return all public video posts, newest first, for the Reels feed. */
+export const getReels = async (req: Request, res: Response) => {
+  try {
+    const reels = await Post.find({
+      status: { $ne: "archived" },
+      "video.url": { $exists: true, $ne: null },
+    })
+      .populate({
+        path: "owner",
+        match: { isPrivate: false },
+        select: "name username profilePicture isPrivate",
+      })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    // Filter out posts whose owner matched as private (populate returns null)
+    const publicReels = reels.filter((p) => p.owner !== null);
+
+    return res.status(200).json({
+      success: true,
+      totalReels: publicReels.length,
+      reels: publicReels,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
