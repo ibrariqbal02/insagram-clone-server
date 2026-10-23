@@ -24,7 +24,8 @@ Posts, reels and other Instagram features are hidden from the MVP navigation (co
 | 2026-10-23 | MVP focus: **human practice calls** (1-to-1 voice, video later) + **AI practice partner** for new users. Posts/reels hidden for now |
 | 2026-10-23 | Calls: WebRTC through a managed service (**LiveKit Cloud** first choice, Agora as backup); server issues room tokens. Socket.IO for matching, presence and call invites |
 | 2026-10-23 | AI partner: speech-to-text → assistant (conversation + corrections) → text-to-speech. Free daily AI minutes limit to control cost |
-| 2026-10-23 | Domain: owner choosing between speakyard.com / .app / .net / speak-yard.com |
+| 2026-10-24 | Domain bought: **speakyard.net** (registered via Wix; use Wix only for DNS, not as the website). Web app: speakyard.net (Vercel), API: api.speakyard.net (Render). Same site, so cookies can use SameSite=Lax |
+| 2026-10-24 | MVP scope: real-time chat + 1-to-1 audio/video calls + group calls + AI calls; remove all Instagram branding |
 
 Name alternatives: Talkwell, Chatterleaf. Rejected because already used: SpeakLoop, Wordmate,
 Chatterbox, Chatterbug, Speaky, Talkpal.
@@ -46,10 +47,10 @@ Chatterbox, Chatterbug, Speaky, Talkpal.
 |---|---|---|
 | 0 | New name, branding, rename repos | Name confirmed; branding and repo rename to do |
 | 1 | Production hardening (details below) | In progress (1.1–1.10 done) |
-| 2 | MVP: AI practice + human practice calls (details below) | Not started |
+| 2 | MVP: chat, audio/video/group calls, AI calls (details below) | Not started |
 | 3 | Capacitor Android build + push notifications (FCM) | Not started |
 | 4 | Google Play release | Not started |
-| 5 | Video calls, group voice rooms, chat corrections/translation, flashcards, leaderboards, Pro plan | Not started |
+| 5 | Chat corrections/translation, flashcards, leaderboards, live rooms, Pro plan | Not started |
 
 ## Phase 1: Production hardening
 
@@ -106,34 +107,38 @@ Done when: all boxes ticked, CI green, app running in production on the new host
 Phase 1 priority order for the MVP: 1.11–1.13 (sockets, needed for calls) → 1.20–1.22 (safety) →
 1.18, 1.16, 1.17 → 1.23–1.28. 1.14–1.15 and the rest of 1.7 only where MVP screens use them.
 
-## Phase 2: MVP (AI practice + human practice calls)
+## Phase 2: MVP (chat + audio/video/group calls + AI calls)
 
-### 2A Profile and onboarding
-- [x] 2.1 User fields: nativeLanguages, learningLanguages [{ code, level A1–C2 }], country, interests, birth year (18+ for calls)
-- [x] 2.2 Onboarding screens after register: pick languages and level, goals, mic permission
-- [x] 2.3 Simplify navigation: Home (Practice), Calls history, Messages, Profile. Hide posts/reels
+### 2A Brand, profile and onboarding
+- [ ] 2.0 Rebrand to Speakyard: remove every "Instagram" name/logo/wording, new logo + favicon + app title, colors, meta tags, README
+- [x] 2.1 User fields: nativeLanguages, learningLanguages [{ code, level A1–C2 }], country, interests, birth year (18+ for calls with strangers)
+- [x] 2.2 Onboarding screens after register: pick languages and level, goals, mic/camera permission (mic only so far — see Log)
+- [ ] 2.3 Navigation: Home (Practice), Messages, Calls, Profile (+ Explore kept). Hide reels/create post from main nav, keep code (built differently this session — see Log, needs reconciling)
 
-### 2B AI practice partner (first thing a new user does)
-- [ ] 2.4 Server `ai` module: assistant API for the tutor, per-language system prompt, level-aware, short replies, gentle corrections
-- [ ] 2.5 Voice loop: record → speech-to-text → assistant → text-to-speech → play (start push-to-talk; streaming later)
+### 2B Human calls (LiveKit)
+- [ ] 2.9 LiveKit: server endpoint creates room + access token (only participants allowed); client LiveKit SDK; env vars
+- [ ] 2.10 1-to-1 audio and video calls from chat and profile: invite/ring over Socket.IO, accept/decline, busy, missed call, timeout
+- [ ] 2.11 Call screen: mute, camera on/off, switch camera, speaker, end, timer, network quality, topic card, report/block
+- [ ] 2.12 Group calls from group conversations (audio/video, up to 8): start, join/leave, "call in progress" banner in chat
+- [ ] 2.13 "Practice now" random matching queue: learning language ↔ native/fluent, level; skip blocked users; 18+ only
+- [ ] 2.14 Call history (audio/video/group/AI, duration, language) + after-call rating
+- [ ] 2.15 Presence: online partners list, "available to talk" toggle
+
+### 2C AI calls (practice partner, first thing a new user does)
+- [ ] 2.4 Server `ai` module: assistant API tutor, per-language and level-aware prompt, short replies, gentle corrections
+- [ ] 2.5 AI call screen like a phone call: speak → speech-to-text → assistant → text-to-speech → play (push-to-talk first)
 - [ ] 2.6 Topics/scenarios (introduce yourself, ordering food, job interview, travel)
-- [ ] 2.7 End-of-session feedback: mistakes, better phrases, new words, simple score
+- [ ] 2.7 End-of-call feedback: mistakes, better phrases, new words, simple score
 - [ ] 2.8 Free daily AI minutes limit, usage tracking per user
 
-### 2C Human practice calls
-- [ ] 2.9 LiveKit setup: server endpoint creates room + access token; client joins with LiveKit SDK (audio only)
-- [ ] 2.10 "Practice now" matching queue over Socket.IO: match by learning language ↔ native/fluent language and level; skip blocked users
-- [ ] 2.11 Call screen: mute, speaker, end, timer, topic suggestion card, report/block button
-- [ ] 2.12 Direct call to a friend/partner (invite, ring, accept/decline, missed call)
-- [ ] 2.13 After-call rating (1–5, "good partner"), save call history (who, language, duration)
-- [ ] 2.14 Presence: online partners list, "available to talk" toggle
-
 ### 2D Keep users coming back
-- [ ] 2.15 Streaks and XP for AI sessions and calls, daily goal (e.g. 10 minutes speaking)
-- [ ] 2.16 Push/in-app notifications: partner online, missed call, streak reminder
+- [ ] 2.16 Streaks and XP for AI calls and human calls, daily speaking goal
+- [ ] 2.17 Notifications: incoming call, missed call, partner online, streak reminder
 
-Done when: a new user can sign up, finish onboarding, talk with the AI, get matched with a human,
-complete a voice call, rate it, and report/block if needed — on web and Android.
+Done when: a new user can sign up, finish onboarding, do an AI call, chat, make audio/video/group calls,
+get matched with a stranger, rate the call, and report/block — on web and Android.
+
+Order of work: see `docs/COMMANDS.md`.
 
 ## Phase 4 checklist: Google Play
 
@@ -187,7 +192,11 @@ complete a voice call, rate it, and report/block if needed — on web and Androi
   The frontend's working folder is now `speakyard-frontend/` (renamed from `instagram-clone-frontend/`)
   to match that monorepo's naming; `frontend/project notes` and this file were updated to match, but
   `backend/project notes`'s note about the client's folder name is still stale (one line, not fixed yet).
-- 2026-10-24: Phase 2.1–2.3 done (profile fields, onboarding, simplified nav), server and client.
+- 2026-10-24: Domain speakyard.net bought. Scope now includes video and group calls and rebrand (2.0). Added docs/COMMANDS.md with the ordered commands.
+- 2026-10-24: Phase 2.1–2.2 done, 2.3 built but **diverges from the plan text above** — this session
+  started from "do 2.1-2.3" against the plan as it read *before* the domain/rebrand/COMMANDS.md commit
+  landed (same day, different session — COMMANDS.md's own "only one assistant session on the branch at a
+  time" rule wasn't followed here). Flagging rather than silently reconciling:
   - Server: `User.model.ts` gained `nativeLanguages` ([String]), `learningLanguages`
     ([{ code, level: A1-C2 }]), `country`, `interests` ([String]), `birthYear` (number, nullable),
     and `onboardingCompleted` (bool, default false — existing users read back `false` via Mongoose's
@@ -196,26 +205,31 @@ complete a voice call, rate it, and report/block if needed — on web and Androi
     of these in one call and sets `onboardingCompleted = true`; validated in `auth.routes.ts`
     (`onboardingRules`) with express-validator — at least one native language, at least one
     `{code, level}` learning language with a valid CEFR level, and (if a birth year is given) age 18+.
-  - Client: new `src/pages/Onboarding/Onboarding.tsx` — a 5-step flow (native languages → learning
-    language+level → country/interests → birth year → mic permission via
+    Matches 2.1 as written either way.
+  - Client onboarding: new `src/pages/Onboarding/Onboarding.tsx` — a 5-step flow (native languages →
+    learning language+level → country/interests → birth year → **mic-only** permission via
     `navigator.mediaDevices.getUserMedia`) that posts to the new endpoint via
     `useCompleteOnboarding` (`useAuth.ts`) and redirects to `/`. `ProtectedRoute.tsx` now redirects any
     authenticated user with `onboardingCompleted !== true` to `/onboarding` (skipped if already there,
     no loop). Language/level/interest option lists live in `src/data/languages.ts`, shared by
-    Onboarding and the new Practice page.
-  - Nav simplified to Home, Calls, Messages, Profile (`Sidebar.tsx` — both the desktop nav and the
-    mobile bottom tab); the old Notifications/Search/Reels/Create-post badge and fill-icon logic tied
-    to those removed nav items was deleted since it was dead code once the items were gone. Posts/reels
-    and the rest (Search, Notifications, Create post, Archive, Settings) are NOT deleted — still fully
-    routed in `AppRoutes.tsx`, just unlinked from nav: the old feed page moved from `/` to `/feed`
-    (code unchanged), Reels/Search/etc. keep their existing paths. `/` now renders a new
+    Onboarding and the new Practice page. **Gap vs. 2.2 as now written:** no camera permission request
+    yet — add it once video calls (2.10+) exist.
+  - Client nav: simplified `Sidebar.tsx` (desktop nav + mobile tab) to exactly Home, Calls, Messages,
+    Profile — **no Explore/Search item**, and hid Search/Notifications/Create-post/Reels from nav, not
+    just Reels/Create-post. The old Notifications/Search/Reels/Create-post badge and fill-icon logic
+    tied to those removed nav items was deleted as dead code. Nothing was deleted: Search,
+    Notifications, Create post, Archive, Settings, and the old feed (moved `/` → `/feed`) all still
+    have working routes in `AppRoutes.tsx`, just unlinked from nav. `/` renders a new
     `src/pages/Practice/Practice.tsx` placeholder (AI practice partner is 2.4-2.8, not built yet) and
-    `/calls` a new `src/pages/Calls/Calls.tsx` empty-state placeholder (human calls are 2.9-2.14).
-    Also fixed the nav/mobile-header wordmark, which still said "Instagram", to "Speakyard".
+    `/calls` a new `src/pages/Calls/Calls.tsx` empty-state placeholder (human calls are 2.9-2.15).
+    Also fixed the nav/mobile-header wordmark, which still said "Instagram", to "Speakyard" (full
+    rebrand is the separate 2.0, not done). **To reconcile:** either add an Explore nav item back
+    (pointing at the existing `/search` page) and restore Notifications to nav to match 2.3 as now
+    worded, or treat the stricter 4-item nav as the real decision and edit 2.3's wording instead —
+    whoever picks this up next should choose one and update this file.
   - Tests: backend `tests/integration/onboarding.controller.test.ts` (controller unit tests + real
-    supertest+express-validator checks for the validation rules) and new assertions on the existing
-    message/edit tests' mock shapes are unaffected. Client: `Onboarding.test.tsx` (full 5-step flow
-    incl. validation and the under-18 block), `Practice.test.tsx`, `Calls.test.tsx`, new
+    supertest+express-validator checks for the validation rules). Client: `Onboarding.test.tsx` (full
+    5-step flow incl. validation and the under-18 block), `Practice.test.tsx`, `Calls.test.tsx`, new
     `ProtectedRoute.test.tsx` cases for the onboarding redirect, and an `authApi.test.ts` case for
-    `completeOnboarding`. No new regressions: same pre-existing 6 backend / 11 frontend failing
-    suites as before this change (confirmed by re-running the full suite before and after).
+    `completeOnboarding`. No new regressions: same pre-existing 6 backend / 11 frontend failing suites
+    as before this change (confirmed by re-running the full suite before and after).
