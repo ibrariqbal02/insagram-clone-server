@@ -6,8 +6,11 @@ so work can continue in any new session. Update it after each step.
 ## Goal
 
 Turn the Instagram clone (React + Vite client, Express + MongoDB server) into **Speakyard**:
-a web and mobile (Android first) app where people practice English and other languages
-with partners, and have fun doing it (challenges, streaks, short videos).
+a web and mobile (Android first) app where people practice speaking English and other languages.
+
+**Current focus (MVP):** live voice calls with real people, plus an AI speaking partner.
+A new user can practice with the AI right after signing up, before any human call.
+Posts, reels and other Instagram features are hidden from the MVP navigation (code kept for later).
 
 ## Decisions so far
 
@@ -18,6 +21,10 @@ with partners, and have fun doing it (challenges, streaks, short videos).
 | 2026-10-23 | Hosting: client on Vercel, server on Render/Railway/Fly (needs always-on server for sockets), MongoDB Atlas, Cloudinary |
 | 2026-10-23 | Name confirmed: **Speakyard** (owner still to check domain, Play Store, trademark) |
 | 2026-10-23 | Work branch in both repos: `assistant/tender-curie-l8kmyp` |
+| 2026-10-23 | MVP focus: **human practice calls** (1-to-1 voice, video later) + **AI practice partner** for new users. Posts/reels hidden for now |
+| 2026-10-23 | Calls: WebRTC through a managed service (**LiveKit Cloud** first choice, Agora as backup); server issues room tokens. Socket.IO for matching, presence and call invites |
+| 2026-10-23 | AI partner: speech-to-text → assistant (conversation + corrections) → text-to-speech. Free daily AI minutes limit to control cost |
+| 2026-10-23 | Domain: owner choosing between speakyard.com / .app / .net / speak-yard.com |
 
 Name alternatives: Talkwell, Chatterleaf. Rejected because already used: SpeakLoop, Wordmate,
 Chatterbox, Chatterbug, Speaky, Talkpal.
@@ -39,10 +46,10 @@ Chatterbox, Chatterbug, Speaky, Talkpal.
 |---|---|---|
 | 0 | New name, branding, rename repos | Name confirmed; branding and repo rename to do |
 | 1 | Production hardening (details below) | In progress (1.1–1.10 done) |
-| 2 | MVP language features | Not started |
+| 2 | MVP: AI practice + human practice calls (details below) | Not started |
 | 3 | Capacitor Android build + push notifications (FCM) | Not started |
 | 4 | Google Play release | Not started |
-| 5 | AI partner, flashcards, quizzes, leaderboards, live voice rooms, Pro plan | Not started |
+| 5 | Video calls, group voice rooms, chat corrections/translation, flashcards, leaderboards, Pro plan | Not started |
 
 ## Phase 1: Production hardening
 
@@ -77,9 +84,9 @@ Each item is a small, testable step. Tick it when done and pushed.
 - [ ] 1.18 `GET /api/health` endpoint (checks DB)
 - [ ] 1.19 Sentry for server and client crash reports
 
-### Play Store requirements (start now, needed later)
-- [ ] 1.20 Report user / report post / report message endpoints + admin review list
-- [ ] 1.21 Block user (blocked users cannot message, see posts, or find you)
+### Safety (required before any call with strangers goes live)
+- [ ] 1.20 Report user (also from inside a call) / report message endpoints + admin review list
+- [ ] 1.21 Block user (blocked users are never matched, cannot call, message or find you)
 - [ ] 1.22 Delete account (in app + public web page), removes user data and Cloudinary files
 
 ### Client
@@ -96,13 +103,37 @@ Known issue: 6 old tests fail on main (post.controller, feed.controller) because
 
 Done when: all boxes ticked, CI green, app running in production on the new hosts.
 
-## Phase 2 preview: MVP language features
+Phase 1 priority order for the MVP: 1.11–1.13 (sockets, needed for calls) → 1.20–1.22 (safety) →
+1.18, 1.16, 1.17 → 1.23–1.28. 1.14–1.15 and the rest of 1.7 only where MVP screens use them.
 
-- Profile: native languages, learning languages, level (A1–C2), country, interests
-- Partner matching by language pair and level
-- Chat: correct a message, translate a message
-- Streaks, XP, daily speaking challenge
-- Onboarding flow for new users
+## Phase 2: MVP (AI practice + human practice calls)
+
+### 2A Profile and onboarding
+- [ ] 2.1 User fields: nativeLanguages, learningLanguages [{ code, level A1–C2 }], country, interests, birth year (18+ for calls)
+- [ ] 2.2 Onboarding screens after register: pick languages and level, goals, mic permission
+- [ ] 2.3 Simplify navigation: Home (Practice), Calls history, Messages, Profile. Hide posts/reels
+
+### 2B AI practice partner (first thing a new user does)
+- [ ] 2.4 Server `ai` module: assistant API for the tutor, per-language system prompt, level-aware, short replies, gentle corrections
+- [ ] 2.5 Voice loop: record → speech-to-text → assistant → text-to-speech → play (start push-to-talk; streaming later)
+- [ ] 2.6 Topics/scenarios (introduce yourself, ordering food, job interview, travel)
+- [ ] 2.7 End-of-session feedback: mistakes, better phrases, new words, simple score
+- [ ] 2.8 Free daily AI minutes limit, usage tracking per user
+
+### 2C Human practice calls
+- [ ] 2.9 LiveKit setup: server endpoint creates room + access token; client joins with LiveKit SDK (audio only)
+- [ ] 2.10 "Practice now" matching queue over Socket.IO: match by learning language ↔ native/fluent language and level; skip blocked users
+- [ ] 2.11 Call screen: mute, speaker, end, timer, topic suggestion card, report/block button
+- [ ] 2.12 Direct call to a friend/partner (invite, ring, accept/decline, missed call)
+- [ ] 2.13 After-call rating (1–5, "good partner"), save call history (who, language, duration)
+- [ ] 2.14 Presence: online partners list, "available to talk" toggle
+
+### 2D Keep users coming back
+- [ ] 2.15 Streaks and XP for AI sessions and calls, daily goal (e.g. 10 minutes speaking)
+- [ ] 2.16 Push/in-app notifications: partner online, missed call, streak reminder
+
+Done when: a new user can sign up, finish onboarding, talk with the AI, get matched with a human,
+complete a voice call, rate it, and report/block if needed — on web and Android.
 
 ## Phase 4 checklist: Google Play
 
@@ -110,6 +141,8 @@ Done when: all boxes ticked, CI green, app running in production on the new host
 2. Signed Android App Bundle (.aab); back up the upload key
 3. Target the API level Play currently requires
 4. Store listing: icon, screenshots, descriptions, privacy policy URL
+   - Microphone permission explanation; declare voice data use for AI (speech-to-text) in Data safety
+   - User-generated content policy: report, block, moderation, terms of use
 5. Data safety form, content rating, target audience
 6. New personal accounts: closed test with the required number of testers (12 at last check) for 14 days
 7. Apply for production access
@@ -122,3 +155,4 @@ Done when: all boxes ticked, CI green, app running in production on the new host
   - New env vars: CLIENT_URLS, COOKIE_SECURE, COOKIE_SAMESITE, RATE_LIMIT_API_MAX (see .env.example).
   - Forgot-password now answers 200 even for unknown emails (no account discovery).
   - Mobile clients send `X-Client-Platform: mobile` to get tokens in the JSON body and use `Authorization: Bearer`.
+- 2026-10-23: Focus changed: MVP is human practice calls + AI practice partner. Added Phase 2 (2.1–2.16), reordered Phase 1.
