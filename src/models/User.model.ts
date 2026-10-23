@@ -71,6 +71,11 @@ const userSchema = new Schema(
       type: Date,
       default: null,
     },
+
+    resetOTPAttempts: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

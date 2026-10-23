@@ -1,12 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
-
-dotenv.config();
+import { getAccessTokenFromRequest } from "../utils/authTokens";
 
 const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   try {
-    const token = req.cookies.accessToken;
+    const token = getAccessTokenFromRequest(req);
 
     if (!token) {
       return res.status(401).json({
@@ -37,7 +35,7 @@ export default isAuthenticated;
 // Use on public routes that need to be aware of private profiles.
 export const optionalAuth = (req: Request, _res: Response, next: NextFunction) => {
   try {
-    const token = req.cookies?.accessToken;
+    const token = getAccessTokenFromRequest(req);
 
     if (token) {
       const decoded = jwt.verify(

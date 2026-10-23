@@ -176,8 +176,8 @@ describe("User Controller", () => {
       await logout(req, res);
 
       expect(mockUser.refreshToken).toBe("");
-      expect(res.clearCookie).toHaveBeenCalledWith("accessToken");
-      expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
+      expect(res.clearCookie).toHaveBeenCalledWith("accessToken", expect.objectContaining({ httpOnly: true }));
+      expect(res.clearCookie).toHaveBeenCalledWith("refreshToken", expect.objectContaining({ httpOnly: true }));
       expect(res.status).toHaveBeenCalledWith(200);
     });
   });

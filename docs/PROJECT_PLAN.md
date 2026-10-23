@@ -16,7 +16,7 @@ with partners, and have fun doing it (challenges, streaks, short videos).
 | 2026-10-23 | Product: language practice and entertainment app (web + Android, iOS later) |
 | 2026-10-23 | Mobile approach: wrap the existing React client with **Capacitor** (one codebase) |
 | 2026-10-23 | Hosting: client on Vercel, server on Render/Railway/Fly (needs always-on server for sockets), MongoDB Atlas, Cloudinary |
-| 2026-10-23 | Proposed name: **Speakyard** (not yet confirmed by owner; check domain, Play Store, trademark) |
+| 2026-10-23 | Name confirmed: **Speakyard** (owner still to check domain, Play Store, trademark) |
 | 2026-10-23 | Work branch in both repos: `assistant/tender-curie-l8kmyp` |
 
 Name alternatives: Talkwell, Chatterleaf. Rejected because already used: SpeakLoop, Wordmate,
@@ -37,8 +37,8 @@ Chatterbox, Chatterbug, Speaky, Talkpal.
 
 | Phase | Work | Status |
 |---|---|---|
-| 0 | New name, branding, rename repos | In progress (name proposed) |
-| 1 | Production hardening (details below) | Planned |
+| 0 | New name, branding, rename repos | Name confirmed; branding and repo rename to do |
+| 1 | Production hardening (details below) | In progress (1.1–1.10 done) |
 | 2 | MVP language features | Not started |
 | 3 | Capacitor Android build + push notifications (FCM) | Not started |
 | 4 | Google Play release | Not started |
@@ -49,18 +49,18 @@ Chatterbox, Chatterbug, Speaky, Talkpal.
 Each item is a small, testable step. Tick it when done and pushed.
 
 ### Server security
-- [ ] 1.1 Validate env vars on startup (fail fast if `MONGO_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, Cloudinary, mail are missing); add `.env.example`
-- [ ] 1.2 CORS origins from `CLIENT_URLS` env instead of the hardcoded list in `src/index.ts`
-- [ ] 1.3 `helmet` security headers, `compression`, JSON body size limit
-- [ ] 1.4 Rate limiting (`express-rate-limit`): strict on login, register, forgot-password, verify-OTP; general limit on `/api`
-- [ ] 1.5 Hash the reset OTP before storing it, limit OTP attempts
-- [ ] 1.6 Central error handler: hide internal messages in production, 404 handler, consistent `{ success, message }` shape
-- [ ] 1.7 Input validation (express-validator) on every route that takes a body; sanitize against NoSQL injection (`express-mongo-sanitize` or equivalent for Express 5)
+- [x] 1.1 Validate env vars on startup (fail fast if `MONGO_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, Cloudinary, mail are missing); add `.env.example`
+- [x] 1.2 CORS origins from `CLIENT_URLS` env instead of the hardcoded list in `src/index.ts`
+- [x] 1.3 `helmet` security headers, `compression`, JSON body size limit
+- [x] 1.4 Rate limiting (`express-rate-limit`): strict on login, register, forgot-password, verify-OTP; general limit on `/api`
+- [x] 1.5 Hash the reset OTP before storing it, limit OTP attempts
+- [x] 1.6 Central error handler: hide internal messages in production, 404 handler, consistent `{ success, message }` shape
+- [ ] 1.7 Input validation (express-validator) on every route that takes a body; sanitize against NoSQL injection. Done: sanitize middleware + auth routes. To do: post, comment, conversation, message routes
 
 ### Auth for mobile
-- [ ] 1.8 `isAuthenticated` / `optionalAuth` accept `Authorization: Bearer <token>` as well as the cookie
-- [ ] 1.9 Login and refresh return tokens in the body for mobile clients; refresh token rotation, hashed refresh token in DB
-- [ ] 1.10 Cookie settings from env (`secure`, `sameSite`) so web on Vercel and server on another domain both work
+- [x] 1.8 `isAuthenticated` / `optionalAuth` accept `Authorization: Bearer <token>` as well as the cookie
+- [x] 1.9 Login and refresh return tokens in the body for mobile clients; refresh token rotation, hashed refresh token in DB
+- [x] 1.10 Cookie settings from env (`secure`, `sameSite`) so web on Vercel and server on another domain both work
 
 ### Real-time
 - [ ] 1.11 Add Socket.IO server with JWT auth on connect
@@ -92,6 +92,8 @@ Each item is a small, testable step. Tick it when done and pushed.
 - [ ] 1.27 Deploy server (Render/Railway) with env vars, MongoDB Atlas with IP allowlist and backups
 - [ ] 1.28 Deploy client to Vercel pointing at the new server
 
+Known issue: 6 old tests fail on main (post.controller, feed.controller) because tests are out of date with the code. Fix in 1.26 (CI).
+
 Done when: all boxes ticked, CI green, app running in production on the new hosts.
 
 ## Phase 2 preview: MVP language features
@@ -115,3 +117,8 @@ Done when: all boxes ticked, CI green, app running in production on the new host
 ## Log
 
 - 2026-10-23: Reviewed both repos. Wrote this plan. Proposed name Speakyard.
+- 2026-10-23: Name Speakyard confirmed. Server: done 1.1–1.6, 1.8–1.10, part of 1.7. Notes:
+  - Refresh tokens are now stored hashed, so every user must log in again once after deploy.
+  - New env vars: CLIENT_URLS, COOKIE_SECURE, COOKIE_SAMESITE, RATE_LIMIT_API_MAX (see .env.example).
+  - Forgot-password now answers 200 even for unknown emails (no account discovery).
+  - Mobile clients send `X-Client-Platform: mobile` to get tokens in the JSON body and use `Authorization: Bearer`.

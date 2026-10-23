@@ -14,6 +14,14 @@ import Comment from "../models/Comment.model";
 import Notification from "../models/Notification.model";
 import deleteFromCloudinary from "../utils/deleteFromCloudinary";
 import uploadToCloudinary from "../utils/uploadToCloudinary";
+import {
+  clearAuthCookies,
+  hashToken,
+  setAuthCookies,
+  wantsTokensInBody,
+} from "../utils/authTokens";
+
+const MAX_OTP_ATTEMPTS = 5;
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -44,21 +52,9 @@ export const register = async (req: Request, res: Response) => {
     });
     const accessToken = generateAccessToken(user._id.toString());
     const refreshToken = generateRefreshToken(user._id.toString());
-    user.refreshToken = refreshToken;
+    user.refreshToken = hashToken(refreshToken);
     await user.save();
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure:true,
-      sameSite: "none",
-      maxAge: 15 * 60 * 1000, // 15 minutes
-    });
-
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    setAuthCookies(res, accessToken, refreshToken);
 
     const userData = user.toObject();
 
@@ -67,6 +63,7 @@ export const register = async (req: Request, res: Response) => {
       success: true,
       message: "user create successfully",
       user: safeUser,
+      ...(wantsTokensInBody(req) && { accessToken, refreshToken }),
     });
   } catch (error) {
     console.error(error);
@@ -105,7 +102,7 @@ export const login = async (req: Request, res: Response) => {
     if (!isPasswordMatch) {
       return res.status(401).json({
         success: false,
-        message: "Invalid password.",
+        message: "Invalid email/username or password.",
       });
     }
 
@@ -113,23 +110,11 @@ export const login = async (req: Request, res: Response) => {
 
     const refreshToken = generateRefreshToken(user._id.toString());
 
-    user.refreshToken = refreshToken;
+    user.refreshToken = hashToken(refreshToken);
 
     await user.save();
 
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 15 * 60 * 1000, // 15 minutes
-    });
-
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    setAuthCookies(res, accessToken, refreshToken);
 
     const userObject = user.toObject();
 
@@ -139,6 +124,7 @@ export const login = async (req: Request, res: Response) => {
       success: true,
       message: "Login successful.",
       user: userData,
+      ...(wantsTokensInBody(req) && { accessToken, refreshToken }),
     });
   } catch (error) {
     console.error("LOGIN ERROR:", error);
@@ -165,9 +151,7 @@ export const logout = async (req: Request, res: Response) => {
 
     await user.save();
 
-    res.clearCookie("accessToken");
-
-    res.clearCookie("refreshToken");
+    clearAuthCookies(res);
 
     return res.status(200).json({
       success: true,
@@ -185,7 +169,8 @@ export const logout = async (req: Request, res: Response) => {
 
 export const refreshToken = async (req: Request, res: Response) => {
   try {
-    const { refreshToken } = req.cookies;
+    const refreshToken: string | undefined =
+      req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!refreshToken) {
       return res.status(401).json({
@@ -208,25 +193,29 @@ export const refreshToken = async (req: Request, res: Response) => {
       });
     }
 
-    if (user.refreshToken !== refreshToken) {
+    if (!user.refreshToken || user.refreshToken !== hashToken(refreshToken)) {
       return res.status(401).json({
         success: false,
         message: "Invalid refresh token.",
       });
     }
 
+    // Rotate: every refresh issues a new refresh token, so a stolen old one stops working.
     const newAccessToken = generateAccessToken(user._id.toString());
+    const newRefreshToken = generateRefreshToken(user._id.toString());
 
-    res.cookie("accessToken", newAccessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 15 * 60 * 1000, // 15 minutes
-    });
+    user.refreshToken = hashToken(newRefreshToken);
+    await user.save();
+
+    setAuthCookies(res, newAccessToken, newRefreshToken);
 
     return res.status(200).json({
       success: true,
       message: "Access token refreshed successfully.",
+      ...(wantsTokensInBody(req) && {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+      }),
     });
   } catch (error) {
     console.error(error);
@@ -498,17 +487,19 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
     const user = await User.findOne({ email });
 
+    // Same answer whether or not the email exists, so attackers can't discover accounts.
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent successfully.",
       });
     }
 
-    const otp = crypto.randomInt(100000, 999999).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
 
-    user.resetOTP = otp;
+    user.resetOTP = hashToken(otp);
     user.resetOTPExpire = new Date(Date.now() + 10 * 60 * 1000);
+    user.resetOTPAttempts = 0;
 
     await user.save();
 
@@ -552,17 +543,27 @@ export const resetPassword = async (req: Request, res: Response) => {
       });
     }
 
-    if (user.resetOTP !== otp) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid OTP.",
-      });
-    }
-
-    if (!user.resetOTPExpire || user.resetOTPExpire < new Date()) {
+    if (!user.resetOTP || !user.resetOTPExpire || user.resetOTPExpire < new Date()) {
       return res.status(400).json({
         success: false,
         message: "OTP has expired.",
+      });
+    }
+
+    if ((user.resetOTPAttempts ?? 0) >= MAX_OTP_ATTEMPTS) {
+      return res.status(429).json({
+        success: false,
+        message: "Too many wrong attempts. Please request a new OTP.",
+      });
+    }
+
+    if (user.resetOTP !== hashToken(String(otp))) {
+      user.resetOTPAttempts = (user.resetOTPAttempts ?? 0) + 1;
+      await user.save();
+
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP.",
       });
     }
 
@@ -573,6 +574,11 @@ export const resetPassword = async (req: Request, res: Response) => {
     user.resetOTP = null;
 
     user.resetOTPExpire = null;
+
+    user.resetOTPAttempts = 0;
+
+    // Log out every device after a password reset.
+    user.refreshToken = "";
 
     await user.save();
 
@@ -629,9 +635,7 @@ export const deleteAccount = async (req: Request, res: Response) => {
 
     await User.findByIdAndDelete(userId);
 
-    res.clearCookie("accessToken");
-
-    res.clearCookie("refreshToken");
+    clearAuthCookies(res);
 
     return res.status(200).json({
       success: true,
