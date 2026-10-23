@@ -24,7 +24,8 @@ Posts, reels and other Instagram features are hidden from the MVP navigation (co
 | 2026-10-23 | MVP focus: **human practice calls** (1-to-1 voice, video later) + **AI practice partner** for new users. Posts/reels hidden for now |
 | 2026-10-23 | Calls: WebRTC through a managed service (**LiveKit Cloud** first choice, Agora as backup); server issues room tokens. Socket.IO for matching, presence and call invites |
 | 2026-10-23 | AI partner: speech-to-text → assistant (conversation + corrections) → text-to-speech. Free daily AI minutes limit to control cost |
-| 2026-10-23 | Domain: owner choosing between speakyard.com / .app / .net / speak-yard.com |
+| 2026-10-24 | Domain bought: **speakyard.net** (registered via Wix; use Wix only for DNS, not as the website). Web app: speakyard.net (Vercel), API: api.speakyard.net (Render). Same site, so cookies can use SameSite=Lax |
+| 2026-10-24 | MVP scope: real-time chat + 1-to-1 audio/video calls + group calls + AI calls; remove all Instagram branding |
 
 Name alternatives: Talkwell, Chatterleaf. Rejected because already used: SpeakLoop, Wordmate,
 Chatterbox, Chatterbug, Speaky, Talkpal.
@@ -46,10 +47,10 @@ Chatterbox, Chatterbug, Speaky, Talkpal.
 |---|---|---|
 | 0 | New name, branding, rename repos | Name confirmed; branding and repo rename to do |
 | 1 | Production hardening (details below) | In progress (1.1–1.10 done) |
-| 2 | MVP: AI practice + human practice calls (details below) | Not started |
+| 2 | MVP: chat, audio/video/group calls, AI calls (details below) | Not started |
 | 3 | Capacitor Android build + push notifications (FCM) | Not started |
 | 4 | Google Play release | Not started |
-| 5 | Video calls, group voice rooms, chat corrections/translation, flashcards, leaderboards, Pro plan | Not started |
+| 5 | Chat corrections/translation, flashcards, leaderboards, live rooms, Pro plan | Not started |
 
 ## Phase 1: Production hardening
 
@@ -106,34 +107,38 @@ Done when: all boxes ticked, CI green, app running in production on the new host
 Phase 1 priority order for the MVP: 1.11–1.13 (sockets, needed for calls) → 1.20–1.22 (safety) →
 1.18, 1.16, 1.17 → 1.23–1.28. 1.14–1.15 and the rest of 1.7 only where MVP screens use them.
 
-## Phase 2: MVP (AI practice + human practice calls)
+## Phase 2: MVP (chat + audio/video/group calls + AI calls)
 
-### 2A Profile and onboarding
-- [ ] 2.1 User fields: nativeLanguages, learningLanguages [{ code, level A1–C2 }], country, interests, birth year (18+ for calls)
-- [ ] 2.2 Onboarding screens after register: pick languages and level, goals, mic permission
-- [ ] 2.3 Simplify navigation: Home (Practice), Calls history, Messages, Profile. Hide posts/reels
+### 2A Brand, profile and onboarding
+- [ ] 2.0 Rebrand to Speakyard: remove every "Instagram" name/logo/wording, new logo + favicon + app title, colors, meta tags, README
+- [ ] 2.1 User fields: nativeLanguages, learningLanguages [{ code, level A1–C2 }], country, interests, birth year (18+ for calls with strangers)
+- [ ] 2.2 Onboarding screens after register: pick languages and level, goals, mic/camera permission
+- [ ] 2.3 Navigation: Home (Practice), Messages, Calls, Profile (+ Explore kept). Hide reels/create post from main nav, keep code
 
-### 2B AI practice partner (first thing a new user does)
-- [ ] 2.4 Server `ai` module: assistant API for the tutor, per-language system prompt, level-aware, short replies, gentle corrections
-- [ ] 2.5 Voice loop: record → speech-to-text → assistant → text-to-speech → play (start push-to-talk; streaming later)
+### 2B Human calls (LiveKit)
+- [ ] 2.9 LiveKit: server endpoint creates room + access token (only participants allowed); client LiveKit SDK; env vars
+- [ ] 2.10 1-to-1 audio and video calls from chat and profile: invite/ring over Socket.IO, accept/decline, busy, missed call, timeout
+- [ ] 2.11 Call screen: mute, camera on/off, switch camera, speaker, end, timer, network quality, topic card, report/block
+- [ ] 2.12 Group calls from group conversations (audio/video, up to 8): start, join/leave, "call in progress" banner in chat
+- [ ] 2.13 "Practice now" random matching queue: learning language ↔ native/fluent, level; skip blocked users; 18+ only
+- [ ] 2.14 Call history (audio/video/group/AI, duration, language) + after-call rating
+- [ ] 2.15 Presence: online partners list, "available to talk" toggle
+
+### 2C AI calls (practice partner, first thing a new user does)
+- [ ] 2.4 Server `ai` module: assistant API tutor, per-language and level-aware prompt, short replies, gentle corrections
+- [ ] 2.5 AI call screen like a phone call: speak → speech-to-text → assistant → text-to-speech → play (push-to-talk first)
 - [ ] 2.6 Topics/scenarios (introduce yourself, ordering food, job interview, travel)
-- [ ] 2.7 End-of-session feedback: mistakes, better phrases, new words, simple score
+- [ ] 2.7 End-of-call feedback: mistakes, better phrases, new words, simple score
 - [ ] 2.8 Free daily AI minutes limit, usage tracking per user
 
-### 2C Human practice calls
-- [ ] 2.9 LiveKit setup: server endpoint creates room + access token; client joins with LiveKit SDK (audio only)
-- [ ] 2.10 "Practice now" matching queue over Socket.IO: match by learning language ↔ native/fluent language and level; skip blocked users
-- [ ] 2.11 Call screen: mute, speaker, end, timer, topic suggestion card, report/block button
-- [ ] 2.12 Direct call to a friend/partner (invite, ring, accept/decline, missed call)
-- [ ] 2.13 After-call rating (1–5, "good partner"), save call history (who, language, duration)
-- [ ] 2.14 Presence: online partners list, "available to talk" toggle
-
 ### 2D Keep users coming back
-- [ ] 2.15 Streaks and XP for AI sessions and calls, daily goal (e.g. 10 minutes speaking)
-- [ ] 2.16 Push/in-app notifications: partner online, missed call, streak reminder
+- [ ] 2.16 Streaks and XP for AI calls and human calls, daily speaking goal
+- [ ] 2.17 Notifications: incoming call, missed call, partner online, streak reminder
 
-Done when: a new user can sign up, finish onboarding, talk with the AI, get matched with a human,
-complete a voice call, rate it, and report/block if needed — on web and Android.
+Done when: a new user can sign up, finish onboarding, do an AI call, chat, make audio/video/group calls,
+get matched with a stranger, rate the call, and report/block — on web and Android.
+
+Order of work: see `docs/COMMANDS.md`.
 
 ## Phase 4 checklist: Google Play
 
@@ -180,3 +185,4 @@ complete a voice call, rate it, and report/block if needed — on web and Androi
     coverage for this work lives in `tests/Integration /useSocket.test.ts` (hooks, mocking
     `src/lib/socket.ts`) and the backend's `tests/unit/socket.test.ts` +
     `tests/integration/socket.test.ts` (real Socket.IO server + `socket.io-client`, real DB).
+- 2026-10-24: Domain speakyard.net bought. Scope now includes video and group calls and rebrand (2.0). Added docs/COMMANDS.md with the ordered commands.
