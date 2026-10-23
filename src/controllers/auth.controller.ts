@@ -651,6 +651,48 @@ export const deleteAccount = async (req: Request, res: Response) => {
   }
 };
 
+export const completeOnboarding = async (req: Request, res: Response) => {
+  try {
+    const { nativeLanguages, learningLanguages, country, interests, birthYear } = req.body;
+
+    const user = await User.findById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    user.nativeLanguages = nativeLanguages;
+    user.learningLanguages = learningLanguages;
+    user.country = typeof country === "string" ? country.trim() : "";
+    user.interests = Array.isArray(interests) ? interests : [];
+    user.birthYear =
+      birthYear !== undefined && birthYear !== null ? Number(birthYear) : null;
+    user.onboardingCompleted = true;
+
+    await user.save();
+
+    const updatedUser = await User.findById(user._id).select(
+      "-password -refreshToken"
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Onboarding completed.",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
 export const updatePrivacy = async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
