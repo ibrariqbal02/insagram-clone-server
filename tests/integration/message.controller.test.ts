@@ -1,12 +1,19 @@
-import { sendMessage, getMessages, deleteMessage } from "../../src/controllers/message.controller";
+import {
+  sendMessage,
+  getMessages,
+  deleteMessage,
+  editMessage,
+} from "../../src/controllers/message.controller";
 import Conversation from "../../src/models/Conversation.model";
 import Message from "../../src/models/Message.model";
 import Notification from "../../src/models/Notification.model";
+import { emitToUsers } from "../../src/socket";
 
 // Mock Mongoose models
 jest.mock("../../src/models/Conversation.model");
 jest.mock("../../src/models/Message.model");
 jest.mock("../../src/models/Notification.model");
+jest.mock("../../src/socket");
 
 describe("Message Controller", () => {
   let req: any;
@@ -104,6 +111,12 @@ describe("Message Controller", () => {
         message: "Message sent successfully.",
         data: mockMessage,
       });
+
+      expect(emitToUsers).toHaveBeenCalledWith(
+        ["user_123", "user_456"],
+        "message:new",
+        { conversationId: "conv_123", message: mockMessage }
+      );
     });
   });
 
@@ -147,6 +160,60 @@ describe("Message Controller", () => {
         totalMessages: 2,
         messages: mockMessages,
       });
+    });
+  });
+
+
+    //  2b. editMessage
+
+  describe("editMessage", () => {
+    it("should return 403 if the authenticated user is not the sender", async () => {
+      req.params.messageId = "msg_123";
+      req.body = { content: "Edited" };
+
+      (Message.findById as jest.Mock).mockResolvedValue({
+        _id: "msg_123",
+        sender: "user_other",
+      });
+
+      await editMessage(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(emitToUsers).not.toHaveBeenCalled();
+    });
+
+    it("should update the message and emit message:update to the conversation's participants", async () => {
+      req.params.messageId = "msg_123";
+      req.body = { content: "Edited content" };
+
+      const mockMessage: any = {
+        _id: "msg_123",
+        sender: "user_123",
+        conversation: "conv_123",
+        content: "Original",
+        isEdited: false,
+        save: jest.fn().mockResolvedValue(true),
+      };
+
+      (Message.findById as jest.Mock).mockResolvedValue(mockMessage);
+      (Conversation.findById as jest.Mock).mockResolvedValue({
+        _id: "conv_123",
+        participants: ["user_123", "user_456"],
+      });
+
+      await editMessage(req, res);
+
+      expect(mockMessage.content).toBe("Edited content");
+      expect(mockMessage.isEdited).toBe(true);
+      expect(mockMessage.save).toHaveBeenCalled();
+
+      expect(emitToUsers).toHaveBeenCalledWith(
+        ["user_123", "user_456"],
+        "message:update",
+        { conversationId: "conv_123", message: mockMessage }
+      );
+
+      expect(res.status).toHaveBeenCalledWith(200);
     });
   });
 
@@ -198,6 +265,7 @@ describe("Message Controller", () => {
 
       const mockConversation = {
         _id: "conv_123",
+        participants: ["user_123", "user_456"],
         lastMessage: "msg_123",
         save: jest.fn().mockResolvedValue(true),
       };
@@ -219,6 +287,12 @@ describe("Message Controller", () => {
       expect(Message.findByIdAndDelete).toHaveBeenCalledWith("msg_123");
       expect(mockConversation.lastMessage).toBe("msg_122");
       expect(mockConversation.save).toHaveBeenCalled();
+
+      expect(emitToUsers).toHaveBeenCalledWith(
+        ["user_123", "user_456"],
+        "message:delete",
+        { conversationId: "conv_123", messageId: "msg_123" }
+      );
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({

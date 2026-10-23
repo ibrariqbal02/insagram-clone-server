@@ -70,9 +70,9 @@ Each item is a small, testable step. Tick it when done and pushed.
 - [x] 1.10 Cookie settings from env (`secure`, `sameSite`) so web on Vercel and server on another domain both work
 
 ### Real-time
-- [ ] 1.11 Add Socket.IO server with JWT auth on connect
-- [ ] 1.12 Emit new messages, edits, deletes, read receipts, typing and online status
-- [ ] 1.13 Client: socket hook, update React Query cache from events, keep polling only as a fallback
+- [x] 1.11 Add Socket.IO server with JWT auth on connect
+- [x] 1.12 Emit new messages, edits, deletes, read receipts, typing and online status
+- [x] 1.13 Client: socket hook, update React Query cache from events, keep polling only as a fallback
 
 ### Data and performance
 - [ ] 1.14 MongoDB indexes (messages by conversation + createdAt, notifications by recipient, posts by author + createdAt, text index for search)
@@ -156,3 +156,27 @@ complete a voice call, rate it, and report/block if needed — on web and Androi
   - Forgot-password now answers 200 even for unknown emails (no account discovery).
   - Mobile clients send `X-Client-Platform: mobile` to get tokens in the JSON body and use `Authorization: Bearer`.
 - 2026-10-23: Focus changed: MVP is human practice calls + AI practice partner. Added Phase 2 (2.1–2.16), reordered Phase 1.
+- 2026-10-24: Real-time chat (1.11–1.13) done, server and client.
+  - Server: `src/socket/index.ts` — Socket.IO attached to the same HTTP server as Express (`src/index.ts`
+    now creates an `http.Server` and passes it to both). JWT auth on connect reads the token from
+    `handshake.auth.token`, a `Bearer` header, or the `accessToken` cookie (same sources as the HTTP
+    middleware). Each socket joins a `user:<id>` room; `message.controller.ts` emits `message:new` /
+    `message:update` / `message:delete` to every participant's room after each DB write. Typing
+    (`typing:start`/`typing:stop` → `typing:update`) and read receipts (`message:read`, which also
+    flips `Message.isRead` in the DB) are handled socket-side by looking up the conversation's
+    participants per event — no conversation-room joins needed. Online/offline presence is tracked
+    in-memory (per-process socket counts) and broadcast to a user's conversation partners on first
+    connect / last disconnect. Single-instance only for now (no Redis adapter) — fine for the planned
+    one-server hosting; revisit if the server is ever scaled horizontally.
+  - Client: `src/lib/socket.ts` (singleton, `withCredentials: true`, connects to the API origin minus
+    `/api`) and `src/hooks/useSocket.ts` — `useChatSocket` (mounted once in `ProtectedRoute`) patches
+    the `["messages", conversationId]` and `["conversations"]` React Query caches from socket events;
+    `useTypingIndicator` / `usePresence` / `useMarkConversationRead` are used locally in `ChatWindow`.
+    Polling in `useMessage.ts` is now a fallback only (messages 1s → 15s, conversations 3s → 20s).
+  - Known pre-existing issue, not touched: `ChatWindow.test.tsx`, `Home.test.tsx`, `Login.test.tsx`
+    and several other component tests already failed before this change (`useNavigate()`/router
+    context errors, and `src/api/axios.ts`'s `import.meta.env` not compiling under ts-jest's
+    CommonJS module target) — same class of issue as the backend's documented failing suite. New
+    coverage for this work lives in `tests/Integration /useSocket.test.ts` (hooks, mocking
+    `src/lib/socket.ts`) and the backend's `tests/unit/socket.test.ts` +
+    `tests/integration/socket.test.ts` (real Socket.IO server + `socket.io-client`, real DB).

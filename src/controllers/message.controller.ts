@@ -3,6 +3,7 @@ import Conversation from "../models/Conversation.model";
 import Message from "../models/Message.model";
 import Notification from "../models/Notification.model";
 import uploadAudioToCloudinary from "../utils/uploadAudioToCloudinary";
+import { emitToUsers } from "../socket";
 
 export const sendMessage = async (req: Request, res: Response) => {
   try {
@@ -47,6 +48,11 @@ export const sendMessage = async (req: Request, res: Response) => {
         conversation: conversationId,
       });
     }
+
+    emitToUsers(participants, "message:new", {
+      conversationId,
+      message,
+    });
 
     return res.status(201).json({
       success: true,
@@ -129,6 +135,15 @@ export const editMessage = async (req: Request, res: Response) => {
     message.isEdited = true;
     await message.save();
 
+    const conversation = await Conversation.findById(message.conversation);
+
+    if (conversation) {
+      emitToUsers(conversation.participants as any[], "message:update", {
+        conversationId: message.conversation,
+        message,
+      });
+    }
+
     return res.status(200).json({
       success: true,
       message: "Message updated successfully.",
@@ -177,6 +192,11 @@ export const deleteMessage = async (req: Request, res: Response) => {
       conversation.lastMessage = lastMessage ? (lastMessage._id as any) : null;
 
       await conversation.save();
+
+      emitToUsers(conversation.participants as any[], "message:delete", {
+        conversationId: conversation._id,
+        messageId,
+      });
     }
 
     return res.status(200).json({
@@ -239,6 +259,11 @@ export const sendVoiceMessage = async (req: Request, res: Response) => {
     }
 
     await message.populate("sender", "name username profilePicture");
+
+    emitToUsers(conversation.participants as any[], "message:new", {
+      conversationId,
+      message,
+    });
 
     return res.status(201).json({
       success: true,

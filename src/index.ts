@@ -1,13 +1,18 @@
 import "./config/checkEnv";
+import http from "http";
 import connectMongoose from "./config/database";
 import app from "./app";
 import { getPort } from "./config/env";
+import { initSocket } from "./socket";
 
 const PORT = getPort();
 
+const httpServer = http.createServer(app);
+initSocket(httpServer);
+
 connectMongoose()
   .then(() => {
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   })
