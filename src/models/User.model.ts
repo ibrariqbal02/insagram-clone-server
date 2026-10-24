@@ -76,6 +76,19 @@ const userSchema = new Schema(
       default: [],
     },
 
+    // Why the user is practising — drives topic suggestions later.
+    goal: {
+      type: String,
+      enum: ["travel", "job", "study", "daily", ""],
+      default: "",
+    },
+
+    // Target speaking minutes per day, shown as the ring on the home screen.
+    dailyGoalMinutes: {
+      type: Number,
+      default: 10,
+    },
+
     // Calls require 18+; stored as a year (not full DOB) to keep this low-sensitivity.
     birthYear: {
       type: Number,

@@ -13,6 +13,8 @@ import {
   deleteAccount,
   updatePrivacy,
   completeOnboarding,
+  getPracticeStats,
+  getOnlinePartners,
 } from "../controllers/auth.controller";
 import isAuthenticated from "../middlewares/auth.middleware";
 import { optionalAuth } from "../middlewares/auth.middleware";
@@ -85,6 +87,10 @@ const onboardingRules = [
     .isIn(LANGUAGE_LEVELS)
     .withMessage(`Level must be one of ${LANGUAGE_LEVELS.join(", ")}.`),
   body("country").optional().isString().trim().isLength({ max: 56 }),
+  body("goal")
+    .optional({ values: "falsy" })
+    .isIn(["travel", "job", "study", "daily"])
+    .withMessage("Pick one of: travel, job, study, daily."),
   body("interests").optional().isArray(),
   body("interests.*").optional().isString().trim().isLength({ max: 40 }),
   body("birthYear")
@@ -119,6 +125,8 @@ router.patch(
 );
 router.patch("/privacy", isAuthenticated, updatePrivacy);
 router.patch("/onboarding", isAuthenticated, onboardingRules, completeOnboarding);
+router.get("/stats", isAuthenticated, getPracticeStats);
+router.get("/online", isAuthenticated, getOnlinePartners);
 router.post("/forgot-password", otpLimiter, [email, handleValidation], forgotPassword);
 router.patch("/reset-password", otpLimiter, resetRules, resetPassword);
 router.delete("/delete-account", isAuthenticated, deleteAccount);

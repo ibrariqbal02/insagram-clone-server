@@ -112,8 +112,12 @@ Phase 1 priority order for the MVP: 1.11–1.13 (sockets, needed for calls) → 
 ### 2A Brand, profile and onboarding
 - [ ] 2.0 Rebrand to Speakyard: remove every "Instagram" name/logo/wording, new logo + favicon + app title, colors, meta tags, README
 - [x] 2.1 User fields: nativeLanguages, learningLanguages [{ code, level A1–C2 }], country, interests, birth year (18+ for calls with strangers)
-- [x] 2.2 Onboarding screens after register: pick languages and level, goals, mic/camera permission (mic only so far — see Log)
-- [ ] 2.3 Navigation: Home (Practice), Messages, Calls, Profile (+ Explore kept). Hide reels/create post from main nav, keep code (built differently this session — see Log, needs reconciling)
+- [x] 2.2 Onboarding screens after register: pick languages and level, goals, mic/camera permission (mic only — camera lands with video calls in 2.10)
+- [x] 2.3 Navigation: Home (Practice), Messages, Calls, Profile. Hide reels/create post from main nav, keep code (owner confirmed the 4-item nav with no Explore — see 2.3b)
+- [x] 2.3b UX pass (web, English only): friendly English-practice look and feel, no Instagram leftovers —
+      one brand colour, Speakyard logo/favicon/titles, English-only onboarding (native language, level
+      with plain descriptions, goal), practice dashboard home, learner profile, practice-friendly
+      Messages/Calls empty states, toasts, skeletons, 44px tap targets, visible focus, 360px→desktop
 
 ### 2B Human calls (LiveKit)
 - [ ] 2.9 LiveKit: server endpoint creates room + access token (only participants allowed); client LiveKit SDK; env vars
@@ -233,3 +237,49 @@ Order of work: see `docs/COMMANDS.md`.
     `ProtectedRoute.test.tsx` cases for the onboarding redirect, and an `authApi.test.ts` case for
     `completeOnboarding`. No new regressions: same pre-existing 6 backend / 11 frontend failing suites
     as before this change (confirmed by re-running the full suite before and after).
+- 2026-10-24: 2.3b UX pass (web, English only) — the app now reads as an English speaking-practice app
+  rather than an Instagram clone. This also settles the 2.3 question flagged above: the owner confirmed
+  the 4-item nav (Home, Calls, Messages, Profile) with no Explore item, so 2.3 is ticked as built.
+  - English only: onboarding now asks three things — native language, English level (A1-C2, each with a
+    plain description like "I can hold a basic conversation"), and goal (travel / work / study / daily
+    talk). It never asks *which* language to learn; the client always sends
+    `learningLanguages: [{ code: "en", level }]`, so the data model stays multi-language for later.
+    New `src/data/english.ts` holds levels, goals and the rotating daily topic. The old "practice Hindi"
+    greeting on Home is gone — Home no longer derives copy from `learningLanguages` at all.
+  - Brand: one colour everywhere via `colors.brand` in `tailwind.config.cjs` (emerald). Every
+    `#0095f6`/`#1877f2`/`blue-*` usage across the client was mechanically repointed to `brand-*`, so a
+    future rebrand is a one-line config change. New `Logo`/`LogoMark` components, `public/favicon.svg`,
+    page title and meta description, and the Grand Hotel (Instagram) font was dropped for Nunito.
+    Removed the Instagram wordmarks on login/register, the "Send private photos…" copy, the
+    "Phone number, username, or email" login placeholder, and the Instagram text in Settings → About.
+  - Navigation: the sidebar no longer collapses to an icon bar (that collapsed state was the last
+    Instagram-looking surface); it is always 245px with labels. The mobile/desktop switch moved from
+    1024px to 768px as asked, so below 768px there is a 4-item bottom tab bar and above it the sidebar.
+    Avatars everywhere now go through the `Avatar` atom, which derives its letter from the user's *name*
+    — it also stopped using `w-${size}` classes, which Tailwind's scanner never saw, so fallback circles
+    were silently unstyled at some sizes.
+  - Home is now a practice dashboard: greeting, daily-goal ring (minutes spoken today), streak, "Talk to
+    AI" and "Practise with a person" cards (both open a friendly coming-soon sheet until 2.4-2.15 land),
+    topic of the day with three phrases, and "People to practise with" from live socket presence with a
+    Message button. Profile became a learner profile (level badge, native language, goal, country, bio,
+    streak/minutes/calls stats) — posts grid, saved tab, archive link and post counts are gone from it,
+    though the post pages themselves still exist unlinked.
+  - Server (only what the UI needed): `goal` and `dailyGoalMinutes` on the user, `goal` accepted by
+    onboarding, `updateProfile` now also takes country/goal/nativeLanguages/learningLanguages (arrays
+    arrive JSON-encoded because that route is multipart), `GET /api/auth/stats` (zeros for streak /
+    minutes / calls until 2.14 and 2.16 track them for real) and `GET /api/auth/online` (users with a
+    live socket, minus yourself), backed by a new `getOnlineUserIds()` export from the socket module.
+  - Polish: toast system (`components/ui/Toast`), `Skeleton`, `EmptyState` and `ComingSoonSheet`
+    components, skeletons on Home/Profile/conversation list, 44px+ tap targets, visible focus rings on
+    interactive elements, dark-mode classes throughout the new screens, and PageSpinner now shows a
+    visible "Loading…" label.
+  - Tests: backend `tests/integration/practice.controller.test.ts` (stats, online partners, goal on
+    onboarding, profile JSON array parsing). Client: rewritten `Practice`, `Onboarding`, `Calls` and
+    `Profile` suites for the new UI plus a new `uiComponents.test.tsx` (Avatar letter rule, Logo,
+    EmptyState, ComingSoonSheet, Toast, english data helpers). Updating the auth screens also let the
+    long-broken `Login`, `Register`, `ForgotPassword`, `MainLayout` and `ProtectedRoute` suites pass
+    again: client failing suites are down from 11 to 6, and the remaining 6 (ChatWindow, CreatePost,
+    Home, Messages, Notifications, Search) are the untouched Instagram-era screens still blocked by the
+    pre-existing `import.meta`/router test-infra issues. Backend is unchanged at 6 known failures.
+  - Not verified in a browser: no browser tooling in this session, so the visual result (dark mode,
+    360px layout) is checked by build/tests only — see the manual checklist.

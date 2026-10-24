@@ -20,6 +20,7 @@ import {
   setAuthCookies,
   wantsTokensInBody,
 } from "../utils/authTokens";
+import { getOnlineUserIds } from "../socket";
 
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -363,9 +364,24 @@ export const getUserProfile = async (req: Request, res: Response) => {
 //     });
 //   }
 // };
+type PracticeGoal = "" | "travel" | "job" | "study" | "daily";
+
+// Multipart form fields arrive as strings, so arrays are sent JSON-encoded.
+const parseJsonField = (value: unknown) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return undefined;
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const updateProfile = async (req: Request, res: Response) => {
   try {
-    const { name, username, bio } = req.body;
+    const { name, username, bio, country, goal } = req.body;
 
     const user = await User.findById(req.userId);
 
@@ -391,7 +407,17 @@ export const updateProfile = async (req: Request, res: Response) => {
 
     if (name) user.name = name;
 
-    if (bio) user.bio = bio;
+    if (bio !== undefined) user.bio = bio;
+
+    if (country !== undefined) user.country = String(country).trim();
+
+    if (goal !== undefined) user.goal = String(goal) as PracticeGoal;
+
+    const nativeLanguages = parseJsonField(req.body.nativeLanguages);
+    if (nativeLanguages) user.nativeLanguages = nativeLanguages;
+
+    const learningLanguages = parseJsonField(req.body.learningLanguages);
+    if (learningLanguages) user.learningLanguages = learningLanguages as any;
 
     if (req.file) {
       const result = await uploadToCloudinary(
@@ -653,7 +679,8 @@ export const deleteAccount = async (req: Request, res: Response) => {
 
 export const completeOnboarding = async (req: Request, res: Response) => {
   try {
-    const { nativeLanguages, learningLanguages, country, interests, birthYear } = req.body;
+    const { nativeLanguages, learningLanguages, country, interests, birthYear, goal } =
+      req.body;
 
     const user = await User.findById(req.userId);
 
@@ -670,6 +697,7 @@ export const completeOnboarding = async (req: Request, res: Response) => {
     user.interests = Array.isArray(interests) ? interests : [];
     user.birthYear =
       birthYear !== undefined && birthYear !== null ? Number(birthYear) : null;
+    user.goal = (typeof goal === "string" ? goal : "") as PracticeGoal;
     user.onboardingCompleted = true;
 
     await user.save();
@@ -682,6 +710,72 @@ export const completeOnboarding = async (req: Request, res: Response) => {
       success: true,
       message: "Onboarding completed.",
       user: updatedUser,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+// Practice stats for the home dashboard. Streaks (2.16) and call history
+// (2.14) aren't tracked yet, so those come back as zeros rather than fake
+// numbers — the UI renders the same either way.
+export const getPracticeStats = async (req: Request, res: Response) => {
+  try {
+    const user = await User.findById(req.userId).select("dailyGoalMinutes");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      stats: {
+        streakDays: 0,
+        minutesToday: 0,
+        minutesTotal: 0,
+        callsCount: 0,
+        dailyGoalMinutes: user.dailyGoalMinutes ?? 10,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+// Users currently connected over Socket.IO, for "People to practice with".
+export const getOnlinePartners = async (req: Request, res: Response) => {
+  try {
+    const onlineIds = getOnlineUserIds().filter((id) => id !== req.userId);
+
+    if (onlineIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        totalUsers: 0,
+        users: [],
+      });
+    }
+
+    const users = await User.find({ _id: { $in: onlineIds } })
+      .select("name username profilePicture country nativeLanguages learningLanguages goal")
+      .limit(20);
+
+    return res.status(200).json({
+      success: true,
+      totalUsers: users.length,
+      users,
     });
   } catch (error) {
     console.error(error);

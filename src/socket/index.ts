@@ -204,6 +204,10 @@ export const initSocket = (httpServer: HTTPServer): IOServer => {
 
 export const getIO = (): IOServer | null => io;
 
+// Ids of users with at least one live socket. In-memory and per-process,
+// so it only reflects this instance (fine while the server is single-node).
+export const getOnlineUserIds = (): string[] => Array.from(onlineSocketCounts.keys());
+
 // Used by controllers to push a real-time event to a set of users' own
 // room (joined on connect), regardless of which conversation rooms exist.
 export const emitToUsers = (
